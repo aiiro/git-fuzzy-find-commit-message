@@ -1,8 +1,10 @@
 package fuzzyfindmessage
 
 import (
+	"bufio"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 var (
@@ -30,4 +32,44 @@ func _lastCommitMessage() (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+func _gitStatus() ([]string, error) {
+	var diffFiles []string
+
+	c := execCommand("git", "status", "--porcelain")
+	out, err := commandOutput(c)
+	if err != nil {
+		return nil, err
+	}
+
+	outStr := string(out)
+	scanner := bufio.NewScanner(strings.NewReader(outStr))
+	for scanner.Scan() {
+		splitStatus := strings.Split(scanner.Text(), " ")
+		diffFiles = append(diffFiles, splitStatus[len(splitStatus)-1])
+	}
+
+	return diffFiles, nil
+}
+
+func _gitDiff(fileName string) (string, error) {
+	c := execCommand("git", "diff", "--no-color", "--", fileName)
+	out, err := commandOutput(c)
+	if err != nil {
+		return "", err
+	}
+
+	return string(out), nil
+}
+
+func _gitAdd(files []string) error {
+	args := append([]string{"add"}, files...)
+	c := execCommand("git", args...)
+	err := commandRun(c)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

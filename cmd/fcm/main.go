@@ -33,6 +33,14 @@ func run() int {
 		return ExitCodeSuccess
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "add" {
+		if err := fuzzyfindmessage.Add(); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			return ExitCodeError
+		}
+		return ExitCodeSuccess
+	}
+
 	if err := fuzzyfindmessage.Commit(); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return ExitCodeError

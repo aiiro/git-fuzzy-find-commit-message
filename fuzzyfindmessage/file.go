@@ -51,7 +51,11 @@ var (
 	lastCommitMessage    func() (string, error)
 	gitCommit            func(fileName string) error
 	fuzzyfinderFind      func(slice interface{}, itemFunc func(i int) string, opts ...fuzzyfinder.Option) (int, error)
+	fuzzyfinderFindMulti func(slice interface{}, itemFunc func(i int) string, opts ...fuzzyfinder.Option) ([]int, error)
 	tmpFileName          func(f *os.File) string
+	gitStatus            func() ([]string, error)
+	gitDiff              func(fileName string) (string, error)
+	gitAdd               func([]string) error
 )
 
 func init() {
@@ -92,9 +96,13 @@ func init() {
 	lastCommitMessage = _lastCommitMessage
 	gitCommit = _gitCommit
 	fuzzyfinderFind = fuzzyfinder.Find
+	fuzzyfinderFindMulti = fuzzyfinder.FindMulti
 	tmpFileName = func(f *os.File) string {
 		return f.Name()
 	}
+	gitStatus = _gitStatus
+	gitDiff = _gitDiff
+	gitAdd = _gitAdd
 }
 
 // Commit wraps Git Commit.
@@ -311,4 +319,51 @@ func _newCurrentUser() *user.User {
 		panic("error")
 	}
 	return usr
+}
+
+func Add() (err error) {
+	var diffFiles []string
+	fileStatuses, err := gitStatus()
+
+	if len(fileStatuses) == 0 {
+		return nil
+	}
+
+	idx, err := fuzzyfinderFindMulti(fileStatuses,
+		func(i int) string {
+			return fileStatuses[i]
+		},
+		fuzzyfinder.WithPreviewWindow(func(i, w, h int) string {
+			if i == -1 {
+				return ""
+			}
+
+			diff, err := gitDiff(fileStatuses[i])
+
+			if err != nil {
+				return "git diff failed."
+			}
+
+			return fmt.Sprintf(diff)
+		}),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if len(idx) == 0 {
+		return nil
+	}
+
+	for _, i := range idx {
+		diffFiles = append(diffFiles, fileStatuses[i])
+	}
+
+	err = gitAdd(diffFiles)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
